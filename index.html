@@ -128,8 +128,7 @@ body{background:var(--bg3);color:var(--text);min-height:100vh;padding:1rem;}
 <div class="toast" id="toast"></div>
 <script>
 const API_KEY="$2a$10$JmEMC4YHk3vM4.iF.rmxE.l.jlxw2jUgz.7QtCuF6w4nvjXYeiTTa";
-const BIN_NAME="wise-moveout-v1";
-let BIN_ID=localStorage.getItem("wise-bin-id")||null;
+const BIN_ID="69ec440336566621a8ec8532";
 let saveTimeout=null;
 let praiseIdx=Math.floor(Math.random()*15);
 let warnState=null;
@@ -457,32 +456,16 @@ function saveToLocal(){
 }
 
 async function initBin(){
-  if(BIN_ID){
-    try{
-      const res=await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`,{headers:{"X-Master-Key":API_KEY}});
-      if(res.ok){
-        const data=await res.json();
-        applyState(data.record);
-        setSyncBar("Synced — live across all devices");
-        renderAll();return;
-      }
-    }catch(e){}
-  }
   try{
-    const res=await fetch("https://api.jsonbin.io/v3/b",{
-      method:"POST",
-      headers:{"Content-Type":"application/json","X-Master-Key":API_KEY,"X-Bin-Name":BIN_NAME,"X-Bin-Private":"false"},
-      body:JSON.stringify(getPayload())
-    });
+    const res=await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`,{headers:{"X-Master-Key":API_KEY,"X-Bin-Meta":"false"}});
     if(res.ok){
       const data=await res.json();
-      BIN_ID=data.metadata.id;
-      localStorage.setItem("wise-bin-id",BIN_ID);
-      setSyncBar("Synced — live across all devices");
+      applyState(data.record);
+      setSyncBar("Synced u2014 live across all devices");
       renderAll();return;
     }
   }catch(e){}
-  setSyncBar("Offline — saved locally only");
+  setSyncBar("Offline u2014 saved locally only");
   renderAll();
 }
 
