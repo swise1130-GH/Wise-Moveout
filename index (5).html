@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Operation Wise Family Moveout</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  :root{
+    --bg:#ffffff;--bg2:#f7f6f3;--bg3:#f0efe9;
+    --text:#1a1a1a;--text2:#6b6a66;--text3:#9e9d99;
+    --border:rgba(0,0,0,0.12);--border2:rgba(0,0,0,0.2);
+    --green:#1D9E75;--green-bg:#E1F5EE;--green-text:#0F6E56;
+    --amber-bg:#FAEEDA;--amber-text:#854F0B;
+    --red-bg:#FAECE7;--red-text:#993C1D;
+    --blue-bg:#E6F1FB;--blue-text:#185FA5;
+    --pink-bg:#FBEAF0;--pink-text:#993556;
+    --gray-bg:#F1EFE8;--gray-text:#5F5E5A;
+    --radius:8px;--radius-lg:12px;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  @media(prefers-color-scheme:dark){
+    :root{
+      --bg:#1c1c1e;--bg2:#2c2c2e;--bg3:#3a3a3c;
+      --text:#f2f2f7;--text2:#aeaeb2;--text3:#636366;
+      --border:rgba(255,255,255,0.12);--border2:rgba(255,255,255,0.22);
+    }
+  }
+  body{background:var(--bg3);color:var(--text);min-height:100vh;padding:1rem;}
+  .header{text-align:center;padding:1.5rem 1rem 1rem;}
+  .header h1{font-size:22px;font-weight:600;color:var(--text);letter-spacing:-.3px;}
+  .header p{font-size:13px;color:var(--text2);margin-top:4px;}
+  .sync-bar{text-align:center;font-size:11px;color:var(--text3);margin:4px 0 12px;min-height:16px;}
+  .card{background:var(--bg);border-radius:var(--radius-lg);border:0.5px solid var(--border);padding:1rem 1.25rem;margin-bottom:12px;}
+  .progress-track{height:5px;background:var(--bg3);border-radius:99px;margin:8px 0 1rem;}
+  .progress-fill{height:100%;background:var(--green);border-radius:99px;transition:width .4s;}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;}
+  .stat{background:var(--bg2);border-radius:var(--radius);padding:.65rem;text-align:center;}
+  .stat-num{font-size:20px;font-weight:600;color:var(--text);}
+  .stat-label{font-size:11px;color:var(--text2);margin-top:2px;}
+  .phase-label{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin:0 0 6px;padding:0 2px;}
+  .tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;}
+  .tab{padding:6px 14px;border-radius:99px;border:0.5px solid var(--border2);background:transparent;cursor:pointer;font-size:12px;color:var(--text2);font-family:inherit;transition:all .15s;white-space:nowrap;}
+  .tab.active{background:var(--text);color:var(--bg);border-color:var(--text);}
+  .tab:hover:not(.active){background:var(--bg2);}
+  .tab.phase2{border-style:dashed;}
+  .day-title{font-size:17px;font-weight:600;color:var(--text);}
+  .day-sub{font-size:13px;color:var(--text2);margin-top:3px;line-height:1.5;}
+  .day-prog{font-size:12px;color:var(--text3);margin-top:4px;margin-bottom:1rem;}
+  .section{margin-bottom:1rem;}
+  .sec-label{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text2);margin-bottom:7px;padding-left:2px;}
+  .task{display:flex;align-items:flex-start;gap:9px;padding:10px 12px;border-radius:var(--radius);border:0.5px solid var(--border);background:var(--bg);margin-bottom:5px;cursor:grab;transition:opacity .2s;position:relative;user-select:none;}
+  .task.done{opacity:.38;}
+  .task.done .task-text{text-decoration:line-through;color:var(--text3);}
+  .task.drag-over{border-color:var(--green);background:var(--green-bg);}
+  .cb{width:18px;height:18px;min-width:18px;border-radius:4px;border:1.5px solid var(--border2);display:flex;align-items:center;justify-content:center;margin-top:1px;transition:all .15s;cursor:pointer;flex-shrink:0;}
+  .task.done .cb{background:var(--green);border-color:var(--green);}
+  .ck{display:none;}
+  .task.done .ck{display:block;}
+  .task-body{flex:1;min-width:0;}
+  .task-text{font-size:13px;color:var(--text);line-height:1.45;}
+  .task-tip{font-size:11px;color:var(--text2);margin-top:4px;line-height:1.55;padding:5px 8px;background:var(--bg2);border-radius:6px;border-left:2px solid var(--border2);}
+  .badge{display:inline-block;font-size:10px;padding:2px 7px;border-radius:99px;margin-left:5px;font-weight:600;vertical-align:middle;}
+  .b-urgent{background:var(--red-bg);color:var(--red-text);}
+  .b-blocker{background:var(--amber-bg);color:var(--amber-text);}
+  .b-car{background:var(--blue-bg);color:var(--blue-text);}
+  .b-ashley{background:var(--pink-bg);color:var(--pink-text);}
+  .b-pending{background:var(--gray-bg);color:var(--gray-text);}
+  .drag-handle{font-size:12px;color:var(--text3);cursor:grab;padding:0 2px;margin-top:2px;flex-shrink:0;}
+  .delete-btn{font-size:12px;color:var(--text3);cursor:pointer;padding:0 3px;margin-top:1px;flex-shrink:0;background:none;border:none;font-family:inherit;line-height:1;}
+  .delete-btn:hover{color:var(--text);}
+  .warn-modal{position:absolute;top:100%;left:0;right:0;z-index:100;background:var(--bg);border:1px solid #EF9F27;border-radius:var(--radius);padding:10px 12px;margin-top:4px;box-shadow:0 8px 24px rgba(0,0,0,.15);}
+  .warn-title{font-size:12px;font-weight:600;color:var(--amber-text);margin-bottom:4px;}
+  .warn-text{font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:8px;}
+  .warn-btns{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+  .warn-btn{padding:5px 13px;border-radius:99px;border:0.5px solid var(--border2);background:transparent;font-size:12px;cursor:pointer;font-family:inherit;color:var(--text);}
+  .warn-btn.confirm{background:var(--amber-text);color:white;border-color:var(--amber-text);}
+  .move-select{font-size:12px;padding:4px 8px;border-radius:var(--radius);border:0.5px solid var(--border2);background:var(--bg);color:var(--text);font-family:inherit;}
+  .add-row{display:flex;gap:6px;margin-top:10px;padding-top:10px;border-top:0.5px solid var(--border);}
+  .add-input{flex:1;font-size:13px;padding:8px 11px;border-radius:var(--radius);border:0.5px solid var(--border2);background:var(--bg);color:var(--text);font-family:inherit;}
+  .add-input:focus{outline:none;border-color:var(--green);}
+  .add-btn{padding:8px 14px;border-radius:var(--radius);border:0.5px solid var(--border2);background:transparent;font-size:12px;cursor:pointer;font-family:inherit;color:var(--text);white-space:nowrap;font-weight:500;}
+  .add-btn:hover{background:var(--bg2);}
+  .refresh-btn{display:block;margin:0 auto 8px;padding:5px 14px;border-radius:99px;border:0.5px solid var(--border2);background:transparent;font-size:11px;cursor:pointer;font-family:inherit;color:var(--text2);}
+  .refresh-btn:hover{background:var(--bg2);}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🚚 Operation Wise Family Moveout</h1>
+  <p>April 2026 — Two phases, one mission</p>
+</div>
+
+<div class="sync-bar" id="sync-bar">Connecting to shared checklist...</div>
+<button class="refresh-btn" onclick="loadState()">↻ Refresh</button>
+
+<div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+    <span style="font-size:13px;color:var(--text2);">Overall progress</span>
+    <span style="font-size:12px;color:var(--text3);" id="overall-label">0 of 0</span>
+  </div>
+  <div class="progress-track"><div class="progress-fill" id="overall-bar" style="width:0%"></div></div>
+  <div class="stats">
+    <div class="stat"><div class="stat-num" id="s-done">0</div><div class="stat-label">Done</div></div>
+    <div class="stat"><div class="stat-num" id="s-left">0</div><div class="stat-label">Remaining</div></div>
+    <div class="stat"><div class="stat-num" id="s-today">0</div><div class="stat-label">This day</div></div>
+    <div class="stat"><div class="stat-num" id="s-pct">0%</div><div class="stat-label">Complete</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="phase-label">Phase 1 — Move out</div>
+  <div class="tabs" id="tabs"></div>
+  <div class="day-title" id="day-title"></div>
+  <div class="day-sub" id="day-sub"></div>
+  <div class="day-prog" id="day-prog"></div>
+  <div id="task-list"></div>
+</div>
+
+<script>
+const API_KEY="$2a$10$JmEMC4YHk3vM4.iF.rmxE.l.jlxw2jUgz.7QtCuF6w4nvjXYeiTTa";
+const BIN_NAME="wise-moveout-v1";
+let BIN_ID=localStorage.getItem("wise-bin-id")||null;
+
+const DAYS=[
+  {id:"fri",label:"Fri",phase:1,title:"Friday — Early prep",sub:"Low effort, high impact. Do these before Saturday's push.",sections:[
+    {label:"Procurement",tasks:[
+      {id:"f1",text:"Buy wardrobe boxes (Home Depot or U-Haul)",tip:"Primary walk-in cannot be packed without these — Saturday's blocker. Get them tonight or first thing Saturday.",badge:"blocker"},
+      {id:"f2",text:"Buy extra packing tape, markers, and small/medium boxes if running low"},
+    ]},
+    {label:"Crew food — plan ahead",tasks:[
+      {id:"f3",text:"Plan food and water for Saturday packing crew",tip:"3–4 people doing physical work all day. Decide now: ordering in, prepping snacks, or a food run in the morning? Energy and morale depend on this more than people expect."},
+    ]},
+    {label:"Basement — dead zone, start here",tasks:[
+      {id:"f4",text:"Pack basement bar glasses and barware",tip:"Nothing here is in active use — easiest packing in the house."},
+      {id:"f5",text:"Pack basement decor and display items"},
+      {id:"f6",text:"Pack miscellaneous kitchen items stored in basement"},
+      {id:"f7",text:"Pack all remaining basement storage items"},
+      {id:"f8",text:"Label and stack all basement boxes in one corner"},
+    ]},
+  ]},
+  {id:"sat",label:"Sat",phase:1,title:"Saturday — Main push: decor, living areas, kids rooms",sub:"Biggest crew day. Hit every room except kitchen and primary closet.",sections:[
+    {label:"Donations — quick sweep",tasks:[
+      {id:"sa0",text:"10-min sweep: catch any Hope Heals stragglers found while packing rooms",tip:"Bags are 90% ready — this just catches the unexpected 10%. Add to existing bags, don't start a new pile."},
+    ]},
+    {label:"Outdoor items",tasks:[
+      {id:"sa_out1",text:"Pack planters and outdoor decor",tip:"Easy to forget — they're not in any room. Do a full lap outside."},
+      {id:"sa_out2",text:"Pack garden tools, hose, and any outdoor storage items"},
+    ]},
+    {label:"Family room",tasks:[
+      {id:"sa1",text:"Pack all family room decor"},
+      {id:"sa2",text:"Pack lamps — wrap shades separately, bases in boxes"},
+      {id:"sa3",text:"Confirm remaining furniture is tagged for movers"},
+    ]},
+    {label:"Dining room",tasks:[
+      {id:"sa4",text:"Pack all remaining decor in the hutch"},
+      {id:"sa5",text:"Wrap and box any fragile hutch items first",tip:"Use clothing or packing paper for dishes and glassware."},
+    ]},
+    {label:"Office",tasks:[
+      {id:"sa6",text:"Pack remaining bookshelf items"},
+      {id:"sa7",text:"Pack any remaining desk or office supplies"},
+    ]},
+    {label:"Loft",tasks:[
+      {id:"sa8",text:"Pack remaining loft bookshelf items"},
+      {id:"sa9",text:"Check loft linen closet — confirm complete or pack remaining"},
+    ]},
+    {label:"Kids rooms",tasks:[
+      {id:"sa10",text:"Tyler: pack remaining closet items and bedding",tip:"Leave school clothes and essentials through Tuesday."},
+      {id:"sa11",text:"Ashley: pack clothes, bedding, last decor items",tip:"Leave out daily makeup essentials through Tuesday.",badge:"ashley"},
+      {id:"sa12",text:"Ashley: pack makeup table items carefully — treat as fragile",badge:"ashley"},
+    ]},
+    {label:"Kids bathroom",tasks:[
+      {id:"sa13",text:"Pack linen closet in kids bathroom"},
+      {id:"sa14",text:"Pack cabinet items — leave out daily essentials through Tuesday"},
+    ]},
+    {label:"Laundry room",tasks:[
+      {id:"sa15",text:"Pack laundry room cabinet items",tip:"Keep detergent and dryer sheets out if doing laundry before Tuesday."},
+    ]},
+    {label:"End of day",tasks:[
+      {id:"sa16",text:"Label all boxes with room + contents"},
+      {id:"sa17",text:"Stack all packed boxes in staging area"},
+    ]},
+  ]},
+  {id:"sun",label:"Sun",phase:1,title:"Sunday — Kitchen, primary bedroom, primary closet",sub:"Hard stop at 4pm — dinner with neighbors at Old Bust Head at 5pm. Start on time.",sections:[
+    {label:"Primary walk-in closet",tasks:[
+      {id:"su1",text:"Pack all hanging clothes into wardrobe boxes",tip:"Wardrobe boxes required — confirm you have enough before starting.",badge:"blocker"},
+      {id:"su2",text:"Pack all shelf items in regular boxes"},
+      {id:"su3",text:"Set aside travel bag for Tuesday hotel + Wednesday–Friday at new house",tip:"Enough clothes and toiletries for Tue night through Fri. Keep it completely separate from all moving boxes."},
+    ]},
+    {label:"Primary bedroom",tasks:[
+      {id:"su4",text:"Pack remaining bookshelf items"},
+      {id:"su5",text:"Pack and wrap mirror carefully",tip:"Use moving blanket or mattress bag. Mark FRAGILE – MIRROR on all sides.",badge:"urgent"},
+      {id:"su6",text:"Pack remaining decor including nightstand items",tip:"Leave just what you need on nightstands through Tuesday night."},
+    ]},
+    {label:"Primary linen closet",tasks:[
+      {id:"su7",text:"Pack all primary linen closet items",tip:"Leave out 1 set of towels and bedding per person through Tuesday night."},
+    ]},
+    {label:"Kitchen — strip to camp kitchen",tasks:[
+      {id:"su8",text:"Pack all glasses and plates — leave out only what's needed through Tuesday dinner"},
+      {id:"su9",text:"Pack all remaining cabinet items: specialty appliances, gadgets, storage containers"},
+      {id:"su10",text:"Pack pantry — leave only what you'll cook Tuesday",tip:"Stage a separate donation box for non-perishables you won't move. Mark it with a different color marker and keep it in a different spot — it should never end up on the truck."},
+      {id:"su11",text:"Pack pots and pans down to 1–2 essential pieces"},
+    ]},
+    {label:"Evening — well earned",tasks:[
+      {id:"su12",text:"Dinner at Old Bust Head with neighbors — 5pm",tip:"Hard stop at 4pm on packing. You've earned it."},
+    ]},
+    {label:"End of day",tasks:[
+      {id:"su13",text:"Confirm mover arrival time and address for Tuesday",badge:"urgent"},
+      {id:"su14",text:"Label and stack all boxes"},
+    ]},
+  ]},
+  {id:"mon",label:"Mon",phase:1,title:"Monday — Final rooms, donations run, logistics",sub:"Morning: garage + Ashley's donation run. Afternoon protected for work (3:30–5pm).",sections:[
+    {label:"Ashley — Hope Heals donation run (10am–1pm)",tasks:[
+      {id:"mo0",text:"Ashley: drop off Hope Heals donations — 10am to 1pm window",tip:"Bags already staged from Saturday sweep. Load into her car before 10am.",badge:"ashley"},
+    ]},
+    {label:"Garage",tasks:[
+      {id:"mo1",text:"Pack all garage tools and storage area items"},
+      {id:"mo2",text:"Separate tools going in the car (painting + shelving) from tools going on truck",tip:"F150 is the project vehicle. Walk-in closet tools ride with you to the new house.",badge:"car"},
+      {id:"mo3",text:"Label garage boxes clearly — movers will handle these"},
+    ]},
+    {label:"Bathrooms",tasks:[
+      {id:"mo4",text:"Pack all bathroom items except: 1 towel each, soap, toothbrush, toilet paper"},
+      {id:"mo5",text:"Pack medications except daily prescriptions"},
+    ]},
+    {label:"Final sweep + kitchen close-out",tasks:[
+      {id:"mo6",text:"Walk every room, closet, cabinet, and drawer — pack any stragglers"},
+      {id:"mo7",text:"Cook a meal using up remaining fridge and pantry food",tip:"Monday night dinner = pantry and fridge clear-out meal. Get creative."},
+      {id:"mo8",text:"Final fridge clear-out after dinner — finish emptying and wipe down interior",tip:"You've already done half. This is the final pass — nothing left behind."},
+      {id:"mo8b",text:"Pack remaining kitchen items after dinner — leave only Tuesday breakfast supplies"},
+    ]},
+    {label:"Logistics — morning, before meetings",tasks:[
+      {id:"mo9",text:"Call Lazy Boy — check furniture delivery status at new address",badge:"urgent"},
+      {id:"mo10",text:"Call Home Depot — confirm appliance delivery at new address",badge:"urgent"},
+      {id:"mo11",text:"Make arrangements for cleaner access at old house Wednesday AM",badge:"urgent"},
+      {id:"mo12",text:"Finalize car vs truck manifest — confirm what rides with you",tip:"Anything needed Wed–Fri before the truck arrives Saturday goes in the cars.",badge:"car"},
+    ]},
+    {label:"Work — protected, do not schedule packing",tasks:[
+      {id:"mo13",text:"Work meeting 3:30–4:00pm"},
+      {id:"mo14",text:"Work meeting 4:00–5:00pm"},
+    ]},
+  ]},
+  {id:"tue",label:"Tue",phase:1,title:"Tuesday — Mover day + departure",sub:"Movers load the truck. Supervise, load the cars, and head to the hotel.",sections:[
+    {label:"Before movers arrive",tasks:[
+      {id:"tu1",text:"Final walkthrough — every room, closet, cabinet, outdoor space",badge:"urgent"},
+      {id:"tu2",text:"Photograph existing wall damage in every room",tip:"Protects you from disputes. Takes 5 minutes and is worth it."},
+      {id:"tu3",text:"Have a simple breakfast — clear out all remaining food"},
+    ]},
+    {label:"Car manifest — load these yourself",tasks:[
+      {id:"tu4",text:"Load travel bag (hotel + Wed–Fri clothes and toiletries) into Explorer",badge:"car"},
+      {id:"tu5",text:"Load Day 1 box into Explorer — see section below",badge:"car"},
+      {id:"tu6",text:"Load project tools (painting, shelving) into F150",tip:"These arrive with you Wednesday — not on the truck Saturday.",badge:"car"},
+      {id:"tu7",text:"Load dog food, treats, bowls, and leashes into Jeep",tip:"Dogs ride in the Jeep. Everything they need lives in the Jeep.",badge:"car"},
+      {id:"tu8",text:"Load valuables, documents, and irreplaceable items into car — never on the truck",badge:"car"},
+    ]},
+    {label:"Day 1 box — pack before movers arrive",tasks:[
+      {id:"tu9",text:"Phone and device chargers for every family member"},
+      {id:"tu10",text:"Medications and daily vitamins"},
+      {id:"tu11",text:"Coffee setup: coffee, honey, elderberry, your preferred brewing method"},
+      {id:"tu12",text:"Toilet paper (4+ rolls) and paper towels"},
+      {id:"tu13",text:"Hand soap and dish soap"},
+      {id:"tu14",text:"Snacks and easy meal items for Wednesday arrival"},
+      {id:"tu15",text:"1 set of bedding per person",tip:"Even if you hotel it, having bedding in the car means Wednesday night at the new house is always an option."},
+      {id:"tu16",text:"Basic toolkit: hammer, screwdriver, box cutter, measuring tape"},
+      {id:"tu17",text:"Water bottles or a case of water"},
+      {id:"tu18",text:"Pet supplies not already in Jeep"},
+      {id:"tu19",text:"Label this box DAY 1 — OPEN FIRST on all sides in large letters"},
+    ]},
+    {label:"While movers work",tasks:[
+      {id:"tu20",text:"Stay on site and available — don't run errands during loading"},
+      {id:"tu21",text:"Direct movers on fragile items and priority furniture"},
+      {id:"tu22",text:"Keep dogs secured — Jeep or a designated room",tip:"Settle them early. A stressed dog during loading is a real liability."},
+    ]},
+    {label:"Logistics",tasks:[
+      {id:"tu23",text:"Cancel water service at old address",badge:"urgent"},
+    ]},
+    {label:"Final departure",tasks:[
+      {id:"tu24",text:"Leave keys, garage openers, and appliance manuals for new owners"},
+      {id:"tu25",text:"Turn off all lights, lock all windows and doors"},
+      {id:"tu26",text:"Confirm movers have new address and your cell number",badge:"urgent"},
+      {id:"tu27",text:"Take one last look — then leave"},
+    ]},
+  ]},
+  {id:"wed",label:"Wed",phase:2,title:"Wednesday — Arrive at new house",sub:"Phase 2 begins. Car-only until Saturday. Get the Day 1 box open first.",sections:[
+    {label:"Arrival",tasks:[
+      {id:"we1",text:"Unload Day 1 box first — set up coffee, toiletries, essentials",tip:"This is why you packed it. Don't dig through anything else first."},
+      {id:"we2",text:"Do a full walkthrough of the new house before unloading anything",tip:"New construction — note anything that needs attention before furniture arrives Saturday."},
+      {id:"we3",text:"Unload tools from F150 — stage in primary walk-in closet area"},
+    ]},
+    {label:"Primary walk-in project — start today",tasks:[
+      {id:"we4",text:"Purchase paint for walk-in closet at local hardware store"},
+      {id:"we5",text:"Prep and paint walk-in closet — first coat",tip:"First coat today means second coat Thursday. Shelving goes in only after paint is fully dry."},
+    ]},
+    {label:"Appliance delivery — pending confirmation",tasks:[
+      {id:"we6",text:"Confirm fridge and washer/dryer delivery window (Wed–Fri)",tip:"Delivery is awaiting confirmation. Follow up if you haven't heard.",badge:"pending"},
+      {id:"we7",text:"Be available for appliance delivery if scheduled today",badge:"pending"},
+    ]},
+    {label:"Logistics",tasks:[
+      {id:"we8",text:"Confirm cleaner has access at old house this morning",badge:"urgent"},
+      {id:"we9",text:"Confirm Saturday mover delivery window at new address"},
+    ]},
+  ]},
+  {id:"thu",label:"Thu",phase:2,title:"Thursday — Projects, setup planning, installs",sub:"Your clearest thinking day before the truck arrives. Use it well.",sections:[
+    {label:"Walk-in closet project",tasks:[
+      {id:"th1",text:"Paint walk-in closet — second coat",tip:"Let it dry fully before shelving goes in. Don't rush this."},
+      {id:"th2",text:"Purchase shelving materials while paint is drying"},
+      {id:"th3",text:"Install shelving once paint is fully dry"},
+    ]},
+    {label:"Internet + TV install — 12pm to 2pm",tasks:[
+      {id:"th4",text:"Be home for internet and TV installation — 12pm to 2pm",tip:"Fixed appointment. Don't schedule anything else during this window.",badge:"urgent"},
+    ]},
+    {label:"Appliance delivery — if not Wednesday",tasks:[
+      {id:"th5",text:"Be available for fridge and washer/dryer delivery if scheduled today",badge:"pending"},
+    ]},
+    {label:"Utilities",tasks:[
+      {id:"th6",text:"Transfer or set up utilities at new address",tip:"New construction — you'll have received utility info at closing. Electric, gas, water."},
+      {id:"th7",text:"Set up internet account if not handled at installation"},
+    ]},
+    {label:"Room setup priority — decide before the truck arrives",tasks:[
+      {id:"th8",text:"As a family, decide which rooms to set up first on Saturday",tip:"Four questions to guide the conversation: (1) Where does everyone sleep Saturday night? → Primary bedroom should be fully functional first. (2) What do you need Sunday morning? → Kitchen second. (3) What causes the most chaos if unsorted? → Kids rooms and bathrooms next. (4) What can live in boxes another week? → Office, loft, guest spaces can wait. Write the priority order somewhere visible so movers can be directed clearly on Saturday."},
+    ]},
+    {label:"Saturday planning",tasks:[
+      {id:"th9",text:"Make a plan for the dogs during Saturday truck unloading",tip:"Same problem as Tuesday in reverse. Dogs + movers + an open front door = chaos. Options: someone stays with them in a back room, they visit a neighbor, or they stay in a crate. Decide now so it's not a scramble Saturday morning.",badge:"urgent"},
+    ]},
+  ]},
+];
+
+let taskMap={};
+let customTasks={};
+let warnState=null;
+let dragId=null;
+let activeDay="fri";
+let saveTimeout=null;
+let isSaving=false;
+
+DAYS.forEach(d=>d.sections.forEach(s=>s.tasks.forEach(t=>{
+  taskMap[t.id]={done:false,day:d.id,task:t};
+})));
+
+async function createBin(data){
+  const res=await fetch("https://api.jsonbin.io/v3/b",{
+    method:"POST",
+    headers:{"Content-Type":"application/json","X-Access-Key":API_KEY,"X-Bin-Name":BIN_NAME,"X-Bin-Private":"false"},
+    body:JSON.stringify(data)
+  });
+  const json=await res.json();
+  return json.metadata?.id||null;
+}
+
+async function readBin(){
+  if(!BIN_ID)return null;
+  const res=await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`,{
+    headers:{"X-Access-Key":API_KEY}
+  });
+  const json=await res.json();
+  return json.record||null;
+}
+
+async function writeBin(data){
+  if(!BIN_ID)return;
+  await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`,{
+    method:"PUT",
+    headers:{"Content-Type":"application/json","X-Access-Key":API_KEY},
+    body:JSON.stringify(data)
+  });
+}
+
+function getPayload(){
+  return{
+    taskMap:Object.fromEntries(Object.entries(taskMap).map(([k,v])=>([k,{done:v.done,day:v.day}]))),
+    customTasks
+  };
+}
+
+function applyPayload(saved){
+  if(saved.taskMap) Object.keys(saved.taskMap).forEach(k=>{
+    if(taskMap[k]){taskMap[k].done=saved.taskMap[k].done||false;taskMap[k].day=saved.taskMap[k].day||taskMap[k].day;}
+  });
+  if(saved.customTasks) customTasks=saved.customTasks;
+}
+
+async function loadState(){
+  setSyncBar("Syncing...");
+  try{
+    if(!BIN_ID){
+      const payload=getPayload();
+      BIN_ID=await createBin(payload);
+      if(BIN_ID) localStorage.setItem("wise-bin-id",BIN_ID);
+    } else {
+      const saved=await readBin();
+      if(saved) applyPayload(saved);
+    }
+    setSyncBar("Synced — "+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
+  }catch(e){
+    setSyncBar("Offline — changes save locally");
+    loadLocal();
+  }
+  renderAll();
+}
+
+function loadLocal(){
+  try{
+    const saved=JSON.parse(localStorage.getItem("wise-local")||"{}");
+    if(saved.taskMap||saved.customTasks) applyPayload(saved);
+  }catch(e){}
+}
+
+function saveLocal(){
+  try{localStorage.setItem("wise-local",JSON.stringify(getPayload()));}catch(e){}
+}
+
+async function scheduleSave(){
+  saveLocal();
+  clearTimeout(saveTimeout);
+  saveTimeout=setTimeout(async()=>{
+    if(isSaving)return;
+    isSaving=true;
+    setSyncBar("Saving...");
+    try{
+      await writeBin(getPayload());
+      setSyncBar("Saved — "+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
+    }catch(e){
+      setSyncBar("Saved locally — will sync when back online");
+    }
+    isSaving=false;
+  },800);
+}
+
+function setSyncBar(msg){document.getElementById("sync-bar").textContent=msg;}
+
+function allTasks(){
+  return[...Object.values(taskMap),...Object.values(customTasks).map(t=>({done:t.done,day:t.day,task:t}))];
+}
+function doneTasks(){return allTasks().filter(t=>t.done).length;}
+function totalTasks(){return allTasks().length;}
+function dayTasksFor(id){return allTasks().filter(t=>t.day===id);}
+
+function updateStats(){
+  const total=totalTasks(),done=doneTasks(),left=total-done,pct=total?Math.round(done/total*100):0;
+  document.getElementById("overall-bar").style.width=pct+"%";
+  document.getElementById("overall-label").textContent=done+" of "+total;
+  document.getElementById("s-done").textContent=done;
+  document.getElementById("s-left").textContent=left;
+  document.getElementById("s-today").textContent=dayTasksFor(activeDay).length;
+  document.getElementById("s-pct").textContent=pct+"%";
+  const dd=dayTasksFor(activeDay).filter(t=>t.done).length,dt=dayTasksFor(activeDay).length;
+  document.getElementById("day-prog").textContent=dd+" of "+dt+" tasks done today";
+}
+
+function renderTabs(){
+  const el=document.getElementById("tabs");
+  let p1="",p2="";
+  DAYS.forEach(d=>{
+    const dd=dayTasksFor(d.id).filter(t=>t.done).length,dt=dayTasksFor(d.id).length;
+    const chk=dd===dt&&dt>0?" ✓":"";
+    const cls="tab"+(d.id===activeDay?" active":"")+(d.phase===2?" phase2":"");
+    const btn=`<button class="${cls}" onclick="setDay('${d.id}')">${d.label}${chk}</button>`;
+    if(d.phase===1)p1+=btn;else p2+=btn;
+  });
+  el.innerHTML=p1+`<span style="font-size:11px;color:var(--text3);padding:6px 4px;white-space:nowrap;">→ new house</span>`+p2;
+}
+
+function getBadge(badge){
+  if(!badge)return"";
+  const map={urgent:"b-urgent",blocker:"b-blocker",car:"b-car",ashley:"b-ashley",pending:"b-pending"};
+  const labels={urgent:"important",blocker:"blocker",car:"goes in car",ashley:"Ashley",pending:"pending"};
+  return`<span class="badge ${map[badge]||""}">${labels[badge]||badge}</span>`;
+}
+
+function getMoveOptions(currentDay){
+  return DAYS.filter(d=>d.id!==currentDay).map(d=>`<option value="${d.id}">${d.label} — ${d.title.split("—")[0].trim()}</option>`).join("");
+}
+
+function renderTasks(){
+  const day=DAYS.find(d=>d.id===activeDay);
+  document.getElementById("day-title").textContent=day.title;
+  document.getElementById("day-sub").textContent=day.sub;
+  const list=document.getElementById("task-list");
+  const originalIds=day.sections.flatMap(s=>s.tasks.map(t=>t.id));
+  const sectionsOut=[];
+  day.sections.forEach(s=>{
+    const tasks=s.tasks.filter(t=>taskMap[t.id]&&taskMap[t.id].day===activeDay);
+    if(tasks.length>0)sectionsOut.push({label:s.label,tasks});
+  });
+  const movedIn=Object.values(taskMap).filter(t=>t.day===activeDay&&!originalIds.includes(t.task.id));
+  const customIn=Object.values(customTasks).filter(t=>t.day===activeDay);
+  if(movedIn.length>0||customIn.length>0){
+    sectionsOut.push({label:"Added to this day",tasks:[...movedIn.map(t=>t.task),...customIn]});
+  }
+
+  list.innerHTML=sectionsOut.map(s=>`
+    <div class="section">
+      <div class="sec-label">${s.label}</div>
+      ${s.tasks.map(t=>{
+        const st=taskMap[t.id]||customTasks[t.id];
+        const isDone=st?st.done:false;
+        const isWarn=warnState&&warnState.id===t.id;
+        const isCustom=!!customTasks[t.id];
+        return`<div class="task${isDone?" done":""}" id="task-${t.id}" draggable="true"
+          ondragstart="onDragStart('${t.id}')"
+          ondragover="onDragOver(event,'${t.id}')"
+          ondragleave="onDragLeave('${t.id}')"
+          ondrop="onDrop(event,'${t.id}')">
+          <div class="drag-handle" title="Drag to reschedule">⠿</div>
+          <div class="cb" onclick="toggle('${t.id}')">
+            <svg class="ck" width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <polyline points="1.5,5 4,7.5 8.5,2" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="task-body">
+            <div class="task-text">${t.text}${getBadge(t.badge)}</div>
+            ${t.tip?`<div class="task-tip">💡 ${t.tip}</div>`:""}
+            ${isWarn?`<div class="warn-modal">
+              <div class="warn-title">⚠ Heads up before you move this</div>
+              <div class="warn-text">${warnState.msg}</div>
+              <div class="warn-btns">
+                <select class="move-select" id="warn-day-select">${getMoveOptions(activeDay)}</select>
+                <button class="warn-btn confirm" onclick="confirmMove('${t.id}')">Move it</button>
+                <button class="warn-btn" onclick="cancelWarn()">Keep here</button>
+              </div>
+            </div>`:""}
+          </div>
+          ${isCustom?`<button class="delete-btn" onclick="deleteCustom('${t.id}')" title="Remove">✕</button>`:""}
+        </div>`;
+      }).join("")}
+    </div>`).join("")||`<div style="text-align:center;padding:2rem;color:var(--text3);font-size:13px;">All tasks for this day have been moved.</div>`;
+
+  list.innerHTML+=`
+    <div class="add-row">
+      <input class="add-input" id="add-input-${activeDay}" type="text" placeholder="Add a task to ${day.label}..." onkeydown="if(event.key==='Enter')addTask('${activeDay}')"/>
+      <button class="add-btn" onclick="addTask('${activeDay}')">+ Add</button>
+    </div>`;
+}
+
+function toggle(id){
+  if(taskMap[id])taskMap[id].done=!taskMap[id].done;
+  else if(customTasks[id])customTasks[id].done=!customTasks[id].done;
+  renderAll();scheduleSave();
+}
+
+function addTask(dayId){
+  const input=document.getElementById("add-input-"+dayId);
+  if(!input)return;
+  const text=input.value.trim();
+  if(!text)return;
+  const newId="custom-"+Date.now();
+  customTasks[newId]={id:newId,text,day:dayId,done:false};
+  input.value="";
+  renderAll();scheduleSave();
+}
+
+function deleteCustom(id){delete customTasks[id];renderAll();scheduleSave();}
+function setDay(id){activeDay=id;warnState=null;renderAll();}
+function renderAll(){renderTabs();renderTasks();updateStats();}
+
+function onDragStart(id){dragId=id;}
+function onDragOver(e,id){e.preventDefault();if(id!==dragId){const el=document.getElementById("task-"+id);if(el)el.classList.add("drag-over");}}
+function onDragLeave(id){const el=document.getElementById("task-"+id);if(el)el.classList.remove("drag-over");}
+function onDrop(e,targetId){
+  e.preventDefault();
+  document.querySelectorAll(".drag-over").forEach(el=>el.classList.remove("drag-over"));
+  if(!dragId||dragId===targetId){dragId=null;return;}
+  const srcDay=(taskMap[dragId]||customTasks[dragId])?.day;
+  const tgtDay=(taskMap[targetId]||customTasks[targetId])?.day;
+  if(!tgtDay||srcDay===tgtDay){dragId=null;return;}
+  triggerWarn(dragId,tgtDay);
+  dragId=null;
+}
+
+const WARNINGS={
+  f1:"Wardrobe boxes are a blocker for Sunday's primary walk-in pack. Moving this later means the closet may not get packed on time.",
+  su1:"This task requires wardrobe boxes (Friday task). Make sure those are purchased first.",
+  su5:"The mirror is fragile and needs careful handling by movers. Don't pack it so early it risks getting knocked.",
+  mo0:"Ashley's Hope Heals run is time-sensitive — 10am to 1pm Monday. Moving this may mean missing the drop-off window.",
+  mo9:"Lazy Boy and appliance check-ins should happen before Tuesday so the delivery plan is confirmed.",
+  mo10:"Confirm appliance delivery before mover day — it affects what needs to be ready at the new house.",
+  tu23:"Canceling water is time-sensitive. Should happen on or before Tuesday departure.",
+  we8:"Confirm cleaner access on Wednesday morning — this is time-sensitive.",
+  tu5:"The Day 1 box must be loaded before movers arrive and goes in the Explorer — not on the truck.",
+  th4:"Internet and TV install is a fixed appointment (12–2pm Thursday). This window cannot move.",
+  th9:"Dog plan for Saturday should be decided before the truck arrives. Don't leave this for Saturday morning.",
+};
+
+function getWarnMsg(id){
+  if(WARNINGS[id])return WARNINGS[id];
+  const entry=taskMap[id]||customTasks[id];
+  const t=entry?.task||entry;
+  if(!t)return null;
+  if(t.badge==="blocker")return"This is a blocker — other tasks depend on it being done first. Moving it later may create a bottleneck.";
+  if(t.badge==="urgent")return"This task is marked important. Make sure the new day still gives enough time to act on it.";
+  if(t.badge==="car")return"This is tied to the car loading plan. It must happen before Tuesday departure.";
+  if(t.badge==="ashley")return"This is Ashley's task. Moving it may conflict with her schedule or the Hope Heals donation window Monday 10am–1pm.";
+  return null;
+}
+
+function triggerWarn(id,targetDay){
+  const msg=getWarnMsg(id);
+  if(msg){warnState={id,targetDay,msg};renderTasks();}
+  else{
+    if(taskMap[id])taskMap[id].day=targetDay;
+    else if(customTasks[id])customTasks[id].day=targetDay;
+    renderAll();scheduleSave();
+  }
+}
+
+function confirmMove(id){
+  const sel=document.getElementById("warn-day-select");
+  const newDay=sel?sel.value:(warnState?warnState.targetDay:null);
+  if(newDay){
+    if(taskMap[id])taskMap[id].day=newDay;
+    else if(customTasks[id])customTasks[id].day=newDay;
+  }
+  warnState=null;renderAll();scheduleSave();
+}
+
+function cancelWarn(){warnState=null;renderTasks();}
+
+loadState();
+</script>
+</body>
+</html>
