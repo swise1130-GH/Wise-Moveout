@@ -127,7 +127,7 @@ body{background:var(--bg3);color:var(--text);min-height:100vh;padding:1rem;}
 </div>
 <div class="toast" id="toast"></div>
 <script>
-const API_KEY="$2a$10$JmEMC4YHk3vM4.iF.rmxE.l.jlxw2jUgz.7QtCuF6w4nvjXYeiTTa";
+const API_KEY="$2a$10$O3FgLJPqTEjSCjTusIoCROhHJ/sSaAsbx9zw8u.8/NFdzjJv01YBC";
 const BIN_ID="69ec440336566621a8ec8532";
 let saveTimeout=null;
 let praiseIdx=Math.floor(Math.random()*15);
@@ -461,11 +461,11 @@ async function initBin(){
     if(res.ok){
       const data=await res.json();
       applyState(data.record);
-      setSyncBar("Synced u2014 live across all devices");
+      setSyncBar("Synced — live across all devices");
       renderAll();return;
     }
   }catch(e){}
-  setSyncBar("Offline u2014 saved locally only");
+  setSyncBar("Offline — saved locally only");
   renderAll();
 }
 
